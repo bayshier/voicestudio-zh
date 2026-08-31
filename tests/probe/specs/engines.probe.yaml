@@ -1,0 +1,19 @@
+# Engine-matrix spec — TTS/ASR backend registry (engine-compatibility constraint).
+# Actor: GET /engines/tts and /engines/asr (captured in the shared boot).
+feature: engine-matrix
+layer: engine
+steps:
+  - actor: api
+    call: GET /engines/tts ; GET /engines/asr
+    capture: { engines_tts: $.engines_tts, engines_asr: $.engines_asr }
+judge:
+  checks:
+    - engines_present: { payload: $.engines_tts, min_count: 1 }
+    - engines_present: { payload: $.engines_asr, min_count: 1 }
+    # The default engine must actually be usable out of the box.
+    - active_engine_available: { payload: $.engines_tts }
+    - active_engine_available: { payload: $.engines_asr }
+    # Every unavailable engine must tell the user how to install it.
+    - unavailable_engines_explained: { payload: $.engines_tts }
+    - unavailable_engines_explained: { payload: $.engines_asr }
+advisory: []

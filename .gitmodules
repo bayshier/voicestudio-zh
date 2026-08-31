@@ -1,0 +1,3 @@
+[submodule "omnivoice-gallery"]
+	path = omnivoice-gallery
+	url = https://github.com/debpalash/omnivoice-gallery.git

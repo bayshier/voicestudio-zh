@@ -1,0 +1,15 @@
+# Coverage Critic spec — drift defense across the probe suite.
+# Actor: enumerate the OpenAPI surface + the probe spec set (test supplies them).
+feature: coverage-critic
+layer: meta
+steps:
+  - actor: meta
+    inspect: openapi paths + probe specs
+    capture: { openapi_paths: $.openapi_paths, specs: $.specs }
+judge:
+  checks:
+    - layers_have_specs:
+        specs: $.specs
+        required: ["media", "env", "desktop", "web", "dubbing", "i18n", "engine", "security", "meta"]
+advisory:
+  - coverage_report: { openapi_paths: $.openapi_paths, specs: $.specs }

@@ -1,0 +1,19 @@
+# DB-migration spec — alembic UPGRADE on existing user data (backward-compat).
+# Actor: boot against a copy of the checked-in omnivoice_data fixture.
+feature: db-migration
+layer: env
+steps:
+  - actor: env
+    probe: boot against seeded omnivoice_data
+    capture:
+      health_status: $.health_status
+      health_body: $.health_body
+      db_path: $.db_path        # path to the migrated DB file (data integrity)
+judge:
+  checks:
+    - status_eq: { actual: $.health_status, expected: 200 }
+    - json_field_eq: { obj: $.health_body, key: status, value: ok }
+    # Data-integrity: the existing DB file must still be present after migration
+    # (guards against a migration that drops/recreates the DB and loses user data).
+    - path_exists: { target: $.db_path }
+advisory: []

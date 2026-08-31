@@ -1,0 +1,30 @@
+# L4 dubbing spec — pipeline timing + export structural correctness.
+#
+# Actor: run a dub job and export. The test supplies segments + SRT/VTT/ZIP names
+# (offline, synthetic); a real run plugs the live pipeline outputs into the same
+# context keys. Translation *quality* is out of scope (not an audio problem).
+
+feature: dubbing-export
+layer: dubbing
+
+steps:
+  - actor: api
+    call: dub job → export
+    capture:
+      segments: $.segments       # [{source, dubbed}, ...] durations in seconds
+      srt: $.srt
+      vtt: $.vtt
+      zip_names: $.zip_names
+      dub_audio: $.dub_audio     # dubbed audio track path (for language-ID advisory)
+
+judge:
+  checks:
+    # Core dubbing constraint: dubbed segments stay near source duration.
+    - segments_duration_ratio: { segments: $.segments, min_ratio: 0.5, max_ratio: 1.6 }
+    - srt_well_formed: { text: $.srt }
+    - vtt_well_formed: { text: $.vtt }
+    - archive_has: { names: $.zip_names, patterns: ["vocals", "background"] }
+
+advisory:
+  # Confirm the dubbed track is in the target language — skips without a detector.
+  - output_language_is: { audio: $.dub_audio, expected: en }

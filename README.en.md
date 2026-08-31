@@ -1,0 +1,392 @@
+<div align="center">
+  <img src="docs/logo.png" alt="VoiceStudio logo" width="120" height="120" />
+  <h1>VoiceStudio</h1>
+  <p><sub>Previously OmniVoice-Studio</sub></p>
+  <h3>Local voice cloning, dubbing, dictation, and long-form audio.</h3>
+  <p>16 TTS engines · 11 ASR engines · 646-language catalogue · macOS, Windows, and Linux</p>
+  <p><strong>Local-first.</strong> No account, API key, subscription, or usage meter for the core workflow.</p>
+
+  <p>
+    <a href="#install">Install</a> ·
+    <a href="#features">Features</a> ·
+    <a href="#comparison">Compare</a> ·
+    <a href="#requirements">Requirements</a> ·
+    <a href="#engines">Engines</a> ·
+    <a href="#architecture">Architecture</a> ·
+    <a href="#api">API</a> ·
+    <a href="#documentation">Docs</a> ·
+    <a href="README_CN.md"><strong>简体中文</strong></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/debpalash/VoiceStudio/stargazers"><img src="https://img.shields.io/github/stars/debpalash/VoiceStudio?style=flat-square&color=f59e0b" alt="GitHub stars" /></a>
+    <a href="https://github.com/debpalash/VoiceStudio/releases"><img src="https://img.shields.io/github/downloads/debpalash/VoiceStudio/total?style=flat-square&color=8b5cf6&label=downloads" alt="Total downloads" /></a>
+    <a href="https://github.com/debpalash/VoiceStudio/releases/latest"><img src="https://img.shields.io/github/v/release/debpalash/VoiceStudio?style=flat-square&color=10b981" alt="Latest release" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="AGPL-3.0 license" /></a>
+    <a href="https://discord.gg/bzQavDfVV9"><img src="https://img.shields.io/badge/Discord-Community-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord community" /></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/debpalash/VoiceStudio/releases/latest"><img src="https://img.shields.io/badge/Download-macOS_·_Windows_·_Linux-10b981?style=for-the-badge" alt="Download VoiceStudio" /></a>
+  </p>
+</div>
+
+<div align="center">
+  <img src="docs/media/0.5.0/quick-switch.gif" alt="Switching TTS engines from the VoiceStudio status bar" width="100%" />
+</div>
+
+> [!WARNING]
+> **Active beta.** Use the [latest release](https://github.com/debpalash/VoiceStudio/releases/latest) for stable work or `main` for current fixes. Report problems through [GitHub Issues](https://github.com/debpalash/VoiceStudio/issues).
+
+## At a glance
+
+| | VoiceStudio |
+|---|---|
+| **Workflows** | Voice cloning and design, video dubbing, dictation, stories, audiobooks, batch generation |
+| **Language catalogue** | 646 TTS languages; actual coverage and quality depend on the selected engine |
+| **Engines** | 16 TTS · 11 ASR · switch in Model Catalogue or with <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>E</kbd> |
+| **Platforms** | macOS 13.3+ on Apple Silicon · Windows 10/11 x64 · Linux x86_64 with glibc 2.39+ |
+| **Compute** | CUDA · Apple Silicon MPS/MLX · ROCm on Linux · CPU · optional remote workers |
+| **Interfaces** | Desktop app · local REST/SSE/WebSocket API · OpenAI-compatible audio API · MCP Server |
+| **Storage** | Voices, projects, settings, and outputs stay on the machine by default |
+| **License** | AGPL-3.0; optional engines keep their own model licenses |
+
+<a id="install"></a>
+
+## Install
+
+| Platform | Package | Guide |
+|---|---|---|
+| macOS 13.3+ | DMG, Apple Silicon | [Install on macOS](docs/install/macos.md) |
+| Windows 10/11 | MSI, x64 | [Install on Windows](docs/install/windows.md) |
+| Linux | AppImage, x86_64 with glibc 2.39+ | [Install on Linux](docs/install/linux.md) |
+| Docker | CUDA, ROCm, or CPU; worker-only GPU profiles | [Run with Docker](docs/install/docker.md) |
+
+Download packages from the [latest release](https://github.com/debpalash/VoiceStudio/releases/latest). First launch creates a managed Python environment and downloads the default model. Later launches reuse both.
+
+> [!NOTE]
+> On macOS, first launch needs a one-time right-click → **Open** approval. Intel Macs cannot run the local Python backend; use a [remote backend](docs/install/macos.md) instead.
+
+### First voice
+
+1. Launch VoiceStudio and open **Voice Cloning**.
+2. Add a clean voice sample. Three seconds works; 5–15 seconds usually gives a better prompt.
+3. Enter text, choose a language, then select **Generate**.
+
+### Run from source
+
+Install the [development prerequisites](.github/CONTRIBUTING.md#development-setup), then:
+
+```bash
+git clone https://github.com/debpalash/VoiceStudio.git
+cd VoiceStudio
+bun install
+bun run desktop
+```
+
+Use `bun run dev` for the browser UI. See [Contributing](.github/CONTRIBUTING.md) for services, tests, and platform packages.
+
+### If setup fails
+
+- Run **Settings → About → Run self-check** or `uv run python backend/main.py --diagnose --deep`.
+- Check [install troubleshooting](docs/install/troubleshooting.md).
+- Save a scrubbed diagnostic bundle from the app when opening an issue.
+- For slow generation, compare [measured benchmarks](docs/benchmarks.md) and [performance settings](docs/performance.md).
+
+<a id="features"></a>
+
+## Features
+
+| Area | Included |
+|---|---|
+| **Voice Cloning** | Zero-shot synthesis from a short reference clip |
+| **Voice Design** | Create a voice from age, accent, pitch, style, and delivery instructions |
+| **Video Dubbing** | Transcribe, translate, preserve speakers, synthesize, and export video |
+| **Stories and audiobooks** | Multi-voice scripts · EPUB/PDF import · chapter rendering · `.m4b` export |
+| **[Dictation Widget](docs/features/dictation.md)** | System-wide shortcut, live transcription, optional local-LLM cleanup |
+| **Vocal Isolation** | Demucs speech/background separation |
+| **Speaker Diarization** | Pyannote and WhisperX speaker assignment |
+| **Batch Queue** | Queue large sets of audio and video jobs with per-job progress |
+| **Model Catalogue** | Install, remove, select, and route TTS, ASR, and LLM models |
+| **Remote Model Downloads** | Install models on enrolled remote workers with live progress |
+| **GPU Auto-Detect** | CUDA, MPS, ROCm, and CPU routing with per-engine checks |
+| **AI Watermark** | AudioSeal embedding and detection |
+| **MCP Server** | Synthesis and transcription tools for MCP clients |
+| **Diagnostics** | Self-checks, error journal, logs, and scrubbed support bundles |
+| **Local-first** | Core creation stays local; network-backed features are explicit opt-ins |
+| **Extensible** | Registry-based TTS, ASR, and plugin interfaces |
+
+<table>
+<tr>
+  <td width="50%"><img src="docs/media/0.5.0/catalogue.png" alt="VoiceStudio Model Catalogue" width="100%" /></td>
+  <td width="50%"><img src="docs/media/0.5.0/gallery-save.png" alt="Saving a gallery voice as a local profile" width="100%" /></td>
+</tr>
+<tr>
+  <td align="center"><sub>Model Catalogue: engine, device, and install state</sub></td>
+  <td align="center"><sub>Gallery: save a shared voice as a local profile</sub></td>
+</tr>
+</table>
+
+<a id="comparison"></a>
+
+## Comparison
+
+VoiceStudio trades managed cloud compute for local control. This is the practical difference:
+
+| | **VoiceStudio** | **Typical hosted voice service** |
+|---|---|---|
+| **Best fit** | Private, offline, self-hosted, or high-volume work | Fast setup without local model management |
+| **Data path** | Local by default; remote features are opt-in | Audio and text are processed by the provider |
+| **Cost model** | Free software; you supply the hardware | Subscription, credits, or metered API use |
+| **Setup** | Install the app and model weights | Create an account and use the web app or API |
+| **Performance** | Depends on your engine and hardware | Provider manages compute and scaling |
+| **Offline use** | Yes, after required models are installed | Usually requires a network connection |
+| **Customization** | Source, engines, models, API, and routing are open | Limited to provider options |
+| **Maintenance** | You manage updates, disk, and compute | Provider manages infrastructure |
+
+<a id="requirements"></a>
+
+## Requirements
+
+Requirements vary by engine. These values cover the default local workflow.
+
+| | **Minimum** | **Recommended** |
+|---|---|---|
+| **OS** | Windows 10 x64 · macOS 13.3 Apple Silicon · Linux x86_64 with glibc 2.39+ | Current supported OS release |
+| **RAM** | 8 GB | 16 GB+ |
+| **Disk** | 10 GB free | 20 GB+ SSD |
+| **GPU** | Optional; CPU mode is supported | NVIDIA CUDA or Apple Silicon |
+| **VRAM** | 4 GB when using a GPU | 8 GB+; large optional engines need more |
+| **Python from source** | 3.11+ | 3.11–3.12 |
+
+ROCm is Linux-only and opt-in. Windows AMD/Ryzen AI uses CPU. Systems with limited VRAM offload work to CPU when required. See [performance](docs/performance.md), [benchmarks](docs/benchmarks.md), and [engine disk usage](docs/engines/disk-usage.md).
+
+<a id="engines"></a>
+
+## Engines
+
+Engine support is capability-specific. Check cloning, language, platform, memory, and license before choosing one. Full setup guides: [docs/engines](docs/engines/README.md).
+
+<a id="tts-engines"></a>
+
+### Text to speech
+
+| Engine | Languages | Clone | Instruct | Linux | macOS ARM | Windows | License |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|---|
+| **VoiceStudio** (default, powered by k2-fsa/OmniVoice) | 600+ | Yes | Yes | CUDA/CPU | MPS | CUDA/CPU | [AGPL-3.0](LICENSE) app · [Apache-2.0](LICENSE-NOTICE.md) model |
+| **CosyVoice 3** | 9 + 18 dialects | Yes | Yes | CUDA/CPU | CPU | CUDA/CPU | Apache-2.0 |
+| **GPT-SoVITS** | 5 | Yes | — | CUDA/CPU | — | CUDA/CPU | MIT |
+| **VoxCPM2** | 30 | Yes | Yes | CUDA/CPU | MPS | CUDA/CPU | Apache-2.0 |
+| **MOSS-TTS-Nano** | 20 | Yes | — | CUDA/CPU | CPU | CUDA/CPU | Apache-2.0 |
+| **KittenTTS** | English | — | — | CPU | CPU | CPU | MIT |
+| **MLX-Audio** | Model-dependent | Varies | Varies | — | MLX | — | Varies |
+| **Sherpa-ONNX** | 20+ | — | — | CUDA/CPU | CPU | CUDA/CPU | Apache-2.0 |
+| **IndexTTS 2.5** ⚡ | ZH · EN · JA · ES · AR | Yes | — | CUDA/CPU | CPU | CUDA/CPU | Bilibili model license¹ |
+| **OmniVoice GGUF** ⚡ | 600+ | Yes | Yes | CUDA/CPU | MPS/CPU | CUDA/CPU | [AGPL-3.0](LICENSE) app · [Apache-2.0](LICENSE-NOTICE.md) model |
+| **OmniVoice (subprocess)** ⚡ | 600+ | Yes | Yes | CUDA/CPU | MPS | CUDA/CPU | [AGPL-3.0](LICENSE) app · [Apache-2.0](LICENSE-NOTICE.md) model |
+| **PocketTTS** ⚡ | EN · FR · DE · PT · IT · ES | Yes | — | CPU | CPU | CPU | CC-BY-4.0, gated² |
+| **Supertonic 3** ⚡ | 31 | — | — | CPU | CPU | CPU | OpenRAIL-M |
+| **MOSS-TTS-v1.5** ⚡ | 31 | Yes | — | CUDA/CPU | CPU | CUDA/CPU | Apache-2.0 |
+| **dots.tts** ⚡ | 24 | Yes | — | CUDA/CPU | CPU | — | Apache-2.0 |
+| **Confucius4-TTS** ⚡ | 14 | Yes | — | CUDA/CPU | CPU | CUDA/CPU | Apache-2.0 |
+
+⚡ Installed or registered on demand.
+
+¹ IndexTTS 2.5 requires a separate written Bilibili license above 100 million monthly active users or RMB 1 billion annual revenue. Review the [model license](https://huggingface.co/IndexTeam/IndexTTS-2.5/blob/main/LICENSE).
+
+² PocketTTS shows its gated-access and CC-BY-4.0 terms before first use.
+
+Clone-less engines cannot preserve a reference speaker in dubbing or pinned-voice batch jobs. VoiceStudio rejects those jobs instead of silently changing engines. Heavy engines have separate memory and platform limits; check their engine guide first.
+
+<a id="asr-engines"></a>
+
+### Speech to text
+
+| Engine | ID | Languages | Best fit |
+|---|---|:---:|---|
+| **WhisperX** (default) | `whisperx` | ~100 | Dubbing, subtitles, word-level timing |
+| **Faster-Whisper** | `faster-whisper` | ~100 | General cross-platform transcription |
+| **Faster-Whisper (isolated)** | `faster-whisper-isolated` | ~100 | Crash-isolated batch transcription |
+| **MLX Whisper** | `mlx-whisper` | ~100 | Apple Silicon |
+| **PyTorch Whisper** | `pytorch-whisper` | ~100 | CUDA, MPS, and CPU fallback |
+| **Parakeet TDT** | `nemo-parakeet` | English + 25 EU | Fast CPU/CUDA transcription |
+| **Parakeet TDT v3 (MLX)** | `parakeet-mlx` | 25 EU | Apple Silicon dictation and word timestamps |
+| **Moonshine** | `moonshine` | English | Low-power, low-latency ONNX |
+| **FunASR** | `funasr` | 50+ | VAD and inline diarization |
+| **sherpa-onnx** (live dictation) | `sherpa-onnx-asr` | Model-dependent | Streaming CPU dictation |
+| **OpenAI-compatible** ⚠️ remote | `openai-compat-asr` | Server-dependent | Qwen3-ASR or another compatible endpoint; audio leaves the machine |
+
+WhisperX and Faster-Whisper retry with `int8` when efficient `float16` is unavailable. Pin `ASR_COMPUTE_TYPE=int8` or `float32` only if automatic selection still fails.
+
+<a id="architecture"></a>
+
+## Architecture
+
+```text
+Tauri v2 desktop shell (Rust)
+        │ IPC
+React + Vite UI
+        │ HTTP · SSE · WebSocket on localhost:3900
+FastAPI backend
+        ├── TTS / ASR engine registries
+        ├── dubbing / audio / long-form pipelines
+        ├── OpenAI-compatible API and MCP server
+        └── SQLite + Alembic → omnivoice_data/
+```
+
+| Layer | Path | Responsibility |
+|---|---|---|
+| Desktop shell | `frontend/src-tauri/` | Window lifecycle, tray, shortcuts, updater, sidecar bootstrap |
+| Frontend | `frontend/src/` | React UI, Zustand state, API and event clients, i18n |
+| API | `backend/api/` | REST routes, schemas, auth boundaries, streaming |
+| Core services | `backend/services/` | Generation, dubbing, audio processing, persistence |
+| Engines | `backend/engines/` | Isolated and optional engine adapters |
+| Worker system | `backend/worker/` | Authenticated remote compute and job transport |
+| Data | `omnivoice_data/` | Projects, voices, settings, logs, and SQLite state |
+| Delivery | `scripts/`, `deploy/`, `.github/workflows/` | Development, packaging, containers, releases, CI |
+
+### Network boundary
+
+- The desktop talks to a loopback-only backend on `localhost:3900`.
+- Loopback API calls need no server key. Remote access requires a share PIN or API key.
+- Remote workers and OpenAI-compatible ASR are opt-in. The UI identifies when audio leaves the machine.
+- Analytics is off until consent. If enabled, it sends allowlisted, content-free usage metadata—not text, audio, file names, or projects.
+
+<a id="api"></a>
+
+## Local speech platform and OpenAI-compatible API
+
+Point an OpenAI-compatible audio client at the local backend:
+
+```diff
+- base_url="https://api.openai.com/v1"
++ base_url="http://localhost:3900/v1"
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /v1/audio/speech` | TTS to `mp3`, `opus`, `aac`, `flac`, `wav`, or `pcm`; select a profile with `voice` and an engine with `model` |
+| `POST /v1/audio/transcriptions` | STT to `json`, `text`, `verbose_json`, `srt`, or `vtt` |
+| `WS /v1/audio/transcriptions/stream` | Live PCM/WebM transcription with partial, utterance, and session-final events |
+| `GET /.well-known/voicestudio-speech` | Discover HTTP, WebSocket, MCP, and native dictation-control transports |
+| `GET /v1/audio/voices` | List local voice profiles and engines |
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:3900/v1", api_key="local")
+
+with client.audio.speech.with_streaming_response.create(
+    model="tts-1",
+    voice="<profile-id>",
+    input="Made on my own hardware.",
+    response_format="wav",
+) as response:
+    response.stream_to_file("speech.wav")
+```
+
+The bundled Rust control sidecar also lets Herdr, coding agents, VS Code,
+desktop apps, and TUIs trigger the existing system-wide dictation flow or reuse
+its safe native insertion. See the [speech platform guide](docs/speech-platform.md).
+The full API reference is in **Settings → OpenAPI Reference**. For LAN,
+Tailscale, or proxy access, read [API authentication](docs/api-auth.md) before
+exposing the backend.
+
+### Agent skills
+
+Install the VoiceStudio skills for Claude Code, Codex, Cursor, and other [skills.sh](https://skills.sh)-compatible agents:
+
+```bash
+npx skills add debpalash/VoiceStudio
+```
+
+- `omnivoice`: synthesize speech and transcribe audio through local VoiceStudio.
+- `oss-maintainer`: the repository's open-source maintenance workflow.
+
+### Google Colab
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/debpalash/VoiceStudio/blob/main/notebooks/OmniVoice_Studio_Colab.ipynb)
+
+The [notebook](notebooks/OmniVoice_Studio_Colab.ipynb) runs the app and web UI on a Colab GPU. Colab is remote compute, so uploaded audio and project data do not remain local to your machine.
+
+<a id="documentation"></a>
+
+## Documentation
+
+| Need | Read |
+|---|---|
+| Install | [macOS](docs/install/macos.md) · [Windows](docs/install/windows.md) · [Linux](docs/install/linux.md) · [Docker](docs/install/docker.md) |
+| Fix setup | [Troubleshooting](docs/install/troubleshooting.md) · [model downloads](docs/downloading-models.md) · [Hugging Face token](docs/setup/huggingface-token.md) |
+| Choose an engine | [Engine guides](docs/engines/README.md) · [benchmarks](docs/benchmarks.md) · [expressive speech](docs/expressive-speech.md) |
+| Tune hardware | [Performance](docs/performance.md) · [remote workers](docs/remote-workers.md) |
+| Build integrations | [Speech platform](docs/speech-platform.md) · [Private production API](docs/production-private-api.md) · [API auth](docs/api-auth.md) · [MCP](docs/mcp.md) · [examples](examples/README.md) |
+| Build VoiceStudio | [Contributing](.github/CONTRIBUTING.md) · [engine acceptance](docs/engine-acceptance.md) |
+| Track changes | [Changelog](CHANGELOG.md) · [roadmap](docs/ROADMAP.md) · [latest release](https://github.com/debpalash/VoiceStudio/releases/latest) |
+| Remove everything | [Uninstall guide](docs/install/uninstall.md) |
+
+## FAQ
+
+<details>
+<summary><strong>Does it work on Apple Silicon and Intel Macs?</strong></summary>
+
+Apple Silicon is supported with MPS and MLX options. Intel Macs cannot run the local backend because current PyTorch wheels are unavailable; they can connect to a remote backend. See [macOS installation](docs/install/macos.md).
+</details>
+
+<details>
+<summary><strong>How much VRAM do I need?</strong></summary>
+
+A GPU is optional. Use 4 GB VRAM as the minimum for accelerated work and 8 GB+ for the default multi-stage workflow. Large optional engines can require 12–16 GB or more. Check the [benchmarks](docs/benchmarks.md) and engine guide.
+</details>
+
+<details>
+<summary><strong>Why does a longer reference clip not always improve the clone?</strong></summary>
+
+Cloning is zero-shot: the clip is a prompt, not training data. Use 5–15 seconds of one speaker, close to the microphone, without music, noise, or reverb. Match the tone and pace you want in the output. For training, see [data preparation](docs/data_preparation.md) and [training](docs/training.md).
+</details>
+
+<details>
+<summary><strong>Can I use generated audio commercially?</strong></summary>
+
+Yes under VoiceStudio's AGPL-3.0 terms. Optional engines and model weights may use different licenses; review the selected engine's license before commercial use.
+</details>
+
+<details>
+<summary><strong>Does VoiceStudio collect data?</strong></summary>
+
+Not unless you opt in. Analytics is off by default and skipping consent keeps it off. When enabled, the app sends allowlisted, content-free usage metadata. Text, audio, file names, voices, and projects are excluded. Change this at **Settings → Privacy**.
+</details>
+
+<details>
+<summary><strong>How do I remove VoiceStudio and its data?</strong></summary>
+
+Use `scripts/uninstall.sh` on macOS/Linux or `scripts\uninstall.ps1` on Windows. Both show a dry run before deletion. See the [uninstall guide](docs/install/uninstall.md) for every path.
+</details>
+
+## Community and contributing
+
+- [GitHub Issues](https://github.com/debpalash/VoiceStudio/issues) for reproducible bugs and feature requests.
+- [Discord](https://discord.gg/bzQavDfVV9) for setup help and project discussion.
+- [Good first issues](https://github.com/debpalash/VoiceStudio/labels/good%20first%20issue) for a scoped starting point.
+- [Contributing guide](.github/CONTRIBUTING.md) for setup, tests, and pull requests.
+
+## Support development
+
+VoiceStudio is free and has no paid tier. Donations fund development and infrastructure.
+
+[Ko-fi](https://ko-fi.com/debpalash) · [PayPal](https://paypal.me/palashCoder) · [Sponsorship details](SPONSORS.md)
+
+## License
+
+VoiceStudio is licensed under [AGPL-3.0](LICENSE). You may run it, modify it, use it internally, and sell generated audio. If you modify VoiceStudio and provide that modified version as a network service, AGPL requires you to offer the corresponding source under the same license. A commercial license is available for proprietary embedding; contact **VoiceStudio@palash.dev**. See [LICENSE-NOTICE.md](LICENSE-NOTICE.md) for the plain-language scope.
+
+Optional engines and downloaded models retain their own licenses. The bundled `omnivoice/` model remains Apache-2.0 upstream.
+
+## Acknowledgments
+
+VoiceStudio builds on [OmniVoice](https://github.com/k2-fsa/OmniVoice), [WhisperX](https://github.com/m-bain/whisperX), [Demucs](https://github.com/facebookresearch/demucs), [Pyannote](https://github.com/pyannote/pyannote-audio), [CTranslate2](https://github.com/OpenNMT/CTranslate2), [AudioSeal](https://github.com/facebookresearch/audioseal), [Tauri](https://tauri.app), [Supertonic](https://huggingface.co/Supertone/supertonic-3), [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx), [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS), and [PocketTTS](https://kyutai.org).
+
+<div align="center">
+  <strong><a href="https://github.com/debpalash/VoiceStudio/releases/latest">Download VoiceStudio</a></strong> ·
+  <a href="https://github.com/debpalash/VoiceStudio">Star the project</a> ·
+  <a href="https://discord.gg/bzQavDfVV9">Join Discord</a>
+</div>

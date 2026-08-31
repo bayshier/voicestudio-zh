@@ -1,0 +1,45 @@
+{
+  "name": "omnivoice-studio-monorepo",
+  "version": "1.0.0",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "setup:api": "uv sync && uv run python scripts/setup.py",
+    "dev:api": "bun scripts/dev-backend.mjs",
+    "dev:frontend": "bun run --cwd frontend dev",
+    "dev:desktop": "TAURI_SKIP_BACKEND=1 bun run --cwd frontend desktop",
+    "wait:api": "wait-on -t 300000 http-get://localhost:3900/system/info",
+    "wait:frontend": "wait-on -t 120000 http://localhost:5173",
+    "predev": "bun install && bun scripts/clear-dev-ports.mjs 3900 3901",
+    "dev": "bun run setup:api && concurrently -n api,fe -c green,cyan --kill-others-on-fail \"bun run dev:api\" \"bun run dev:frontend\"",
+    "predesktop": "bun install && bun scripts/desktop-runtime-preflight.mjs && bun scripts/clear-dev-ports.mjs 3900 3901",
+    "desktop": "bun run setup:api && concurrently -n api,app -c green,magenta --kill-others-on-fail \"bun run dev:api\" \"bun run dev:desktop\"",
+    "desktop-prod": "bun scripts/desktop-prod.mjs",
+    "desktop-prod:run": "bun scripts/desktop-prod.mjs --skip-build --keep-data",
+    "desktop-prod:upgrade": "bun scripts/desktop-prod.mjs --keep-data",
+    "desktop-prod:keep-models": "bun scripts/desktop-prod.mjs --keep-models",
+    "desktop-prod:pill": "bun scripts/desktop-prod.mjs --pill",
+    "desktop-prod:run:pill": "bun scripts/desktop-prod.mjs --skip-build --keep-data --pill",
+    "desktop-fresh": "bun scripts/desktop-fresh.mjs",
+    "desktop-fresh:run": "bun scripts/desktop-fresh.mjs --skip-build",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "test:frontend": "node --test tests/frontend/*.test.mjs",
+    "smoke-test": "bash scripts/smoke-test.sh",
+    "smoke-test:quick": "bash scripts/smoke-test.sh --skip-build --skip-model",
+    "smoke-test:upgrade": "bash scripts/smoke-test.sh --keep-data --skip-build",
+    "deps:check": "taze -r --maturity-period 7"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.4",
+    "playwright": "^1.62.1",
+    "taze": "^19.17.2",
+    "turbo": "^2.10.9",
+    "typescript": "^6.0.3",
+    "wait-on": "^9.1.0"
+  }
+}

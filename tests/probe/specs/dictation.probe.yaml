@@ -1,0 +1,14 @@
+# Dictation spec — streaming-ASR (real-time capture) WebSocket contract.
+# Actor: handshake-only connect to /ws/transcribe (captured in the shared boot).
+# Driving real partial/final transcription needs an ASR model → enable-on-demand.
+feature: dictation
+layer: dictation
+steps:
+  - actor: ws
+    connect: /ws/transcribe
+    capture: { ws_routes: $.ws_routes, ws_transcribe_connected: $.ws_transcribe_connected }
+judge:
+  checks:
+    - ws_endpoint_registered: { ws_routes: $.ws_routes, path: "/ws/transcribe" }
+    - ws_handshake_ok: { connected: $.ws_transcribe_connected }
+advisory: []

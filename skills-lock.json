@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "fastapi-python": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "fastapi-python/SKILL.md",
+      "computedHash": "cd9c84b3bf2e4cf55f4a3f97b102d3affad2682680eb3d8ec8d2f68020ba5c8d"
+    },
+    "vite": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "vite/SKILL.md",
+      "computedHash": "8995600ea3cf7c18208105011f65b9098a547a19dff446fb774e42ac726d36b1"
+    }
+  }
+}

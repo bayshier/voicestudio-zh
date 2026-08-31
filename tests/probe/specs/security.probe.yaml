@@ -1,0 +1,12 @@
+# Security spec — loopback gating of system routes (P0 security surface).
+# Actor: a non-loopback origin GETs /system/info (captured in the shared boot).
+feature: loopback-security
+layer: security
+steps:
+  - actor: api
+    call: GET /system/info from a non-loopback origin
+    capture: { loopback_reject_status: $.loopback_reject_status }
+judge:
+  checks:
+    - status_eq: { actual: $.loopback_reject_status, expected: 403 }
+advisory: []

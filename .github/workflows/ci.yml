@@ -1,0 +1,444 @@
+# PR-gated continuous integration — runs backend pytest + frontend node:test
+# + TypeScript typecheck on every pull request and push to main. Keeps the
+# heavy 4-platform Tauri bundle off this path (that's release.yml on tag
+# push) so PRs turn around in a few minutes instead of ~40.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Run all JavaScript actions on Node 24 (GH deprecates Node 20 in Sep 2026).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    name: Tests (backend + frontend)
+    runs-on: ubuntu-22.04
+    env:
+      # Same restricted-network resilience the smoke matrix already sets. This
+      # job resolves the same direct-URL dependency and had none of it, which
+      # is why it was the one that kept dying (see scripts/uv-sync-retry.sh).
+      UV_HTTP_TIMEOUT: "120"
+      UV_HTTP_RETRIES: "5"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # enable-cache persists ~/.cache/uv across runs, keyed on uv.lock —
+      # turns `uv sync` from ~45 s cold to ~5 s warm.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # Node 22 is needed for --experimental-strip-types so node:test can
+      # import .ts files directly from frontend/src/api/*.
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      # apt install ffmpeg is ~30 s every run; cache the resolved .debs.
+      - name: System deps (ffmpeg)
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.3
+        with:
+          packages: ffmpeg
+          version: 1.0
+
+      - name: Install Python deps
+        # `--all-extras` installs optional engine deps (e.g. `supertonic`)
+        # so their tests can exercise the real import path, not the
+        # "package not installed" fallback. Smoke job below stays on bare
+        # `uv sync` because smoke only hits /health + fixture profiles.
+        #
+        # Retried because one dependency — en-core-web-sm — resolves to a
+        # direct GitHub release URL, and github.com intermittently answers
+        # `http2 error: refused stream before processing any application
+        # logic`. uv's own 3 retries all land inside the same few seconds and
+        # fail together, which has cost otherwise-green runs (#1517, #1518).
+        # Backing off between whole attempts is what actually clears it.
+        run: bash scripts/uv-sync-retry.sh --all-extras
+
+      # HF_HUB_OFFLINE=1 is a recurrence guard, not an optimization: a test
+      # that reaches huggingface.co fails fast and loud instead of silently
+      # downloading model weights mid-suite (the preload_model() Hub-probe
+      # bug pulled the full 2.3 GB k2-fsa/OmniVoice checkpoint into every
+      # networked empty-cache run before it was caught). All legitimate HF
+      # interactions in tests are stubbed; anything that trips this is a
+      # test-isolation bug.
+      - name: Run pytest
+        run: uv run --no-sync pytest tests/ -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"
+
+      # Docs-drift CI gate (Phase 1 INST-06). The validator extracts code
+      # blocks tagged `<!-- validate -->` from docs/install/*.md and asserts
+      # each line appears in scripts/desktop-prod.sh after normalisation.
+      # Its own correctness is enforced by tests/scripts/test_validate_install_docs.py
+      # (checker B-5) — those tests run in the previous step.
+      - name: Validate install docs against desktop-prod.sh
+        run: python scripts/validate-install-docs.py
+
+      # The AppImage launcher decides which WebKitGTK actually runs — the wrong
+      # answer is a permanently blank window on Linux (#56, #961, #1258), and
+      # the only place that logic is exercised is this shell harness. It had
+      # never been wired into CI, so its cases were a regression test nothing
+      # ran. Cheap (pure bash, stubs pkg-config) and it gates the class.
+      - name: AppImage launcher (AppRun) unit tests
+        run: |
+          bash frontend/src-tauri/appimage/AppRun.test.sh
+          bash scripts/inject-apprun.test.sh
+          bash scripts/verify-apprun-bundle.test.sh
+
+      # `backend/tests/` mounts routers on bare FastAPI apps (no heavy main
+      # import chain) with a hermetic data dir from its conftest.py. It no
+      # longer stubs sys.modules, so mixed sessions with tests/ are safe;
+      # the separate session is kept for cheaper, clearer CI output.
+      - name: Run pytest (backend/tests, isolated)
+        run: uv run --no-sync pytest backend/tests/ -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"  # same no-silent-downloads guard as tests/
+
+      # Cache ~/.bun/install/cache keyed on bun.lock — `bun install` drops
+      # from ~15 s cold to near-instant on warm cache.
+      - name: Cache bun deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock', 'bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install frontend deps
+        working-directory: frontend
+        # --frozen-lockfile so a frontend/package.json change that forgets to
+        # regenerate the root bun.lock fails HERE (fast) instead of only in the
+        # Docker build (deploy/Dockerfile), which is what reddened main on #485.
+        run: bun install --frozen-lockfile
+
+      # checkJs is true in tsconfig for IDE feedback, but 947 pre-existing
+      # JS errors remain. Override to false in CI so only .ts files block.
+      # Sourced from `typecheck:ci` in frontend/package.json so the release
+      # workflow runs an identical command — drift broke v0.3.x release runs.
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: bun run typecheck:ci
+
+      # oxlint gate — fast Rust linter, blocks on errors so lint debt can't
+      # re-accumulate (warnings, incl. the react-compiler advisories in
+      # `lint:hooks`, are non-blocking). See frontend/.oxlintrc.json.
+      - name: Frontend lint (oxlint)
+        working-directory: frontend
+        run: bun run lint
+
+      # oxfmt format gate — JS/TS/JSX only (CSS/JSON/Tauri excluded; see
+      # frontend/.oxfmtrc.json). `bun run format` fixes locally.
+      - name: Frontend format check (oxfmt)
+        working-directory: frontend
+        run: bun run format:check
+
+      # `bun run test` (frontend/package.json), not `bunx vitest` — bunx
+      # resolves by npm package name and can miss workspace-hoisted bins,
+      # then falls back to fetching from npm (#962 class).
+      - name: Run Vitest (frontend)
+        working-directory: frontend
+        run: bun run test
+
+      # Legacy node:test runner for tests/frontend/*.test.mjs
+      - name: Run frontend node:test (legacy)
+        working-directory: frontend
+        run: node --experimental-strip-types --no-warnings --test ../tests/frontend/*.test.mjs
+
+      # Production-bundle blank-screen gate. Everything above runs UN-minified
+      # (dev server + Vitest/jsdom), so a crash that exists ONLY in the minified
+      # release bundle — a TDZ reorder that throws before React mounts — passes
+      # every check and ships a black screen. That is how v0.3.22 went out (#1178),
+      # and it recurred pre-0.3.23. This builds the real dist/ and asserts the app
+      # actually mounts into #root. See frontend/e2e-prod/prod-bundle-smoke.spec.ts.
+      # (The in-app root <ErrorBoundary> in main-app.jsx catches such throws at
+      # runtime; this gate stops them reaching a release in the first place.)
+      - name: Install Playwright chromium
+        working-directory: frontend
+        run: bunx playwright install --with-deps chromium
+      - name: Production-bundle smoke — no blank screen
+        working-directory: frontend
+        run: bun run test:prod-bundle
+
+  # ── Cross-platform Tauri shell check ────────────────────────────────────
+  # Catches platform-specific Rust regressions on PR (cfg(target_os=...)
+  # gates, missing Windows/macOS deps, etc.) without spending the 15+ min
+  # per-platform that a full `tauri build` takes. `cargo check` is the
+  # lightest gate that exercises type-checking + linking for each target,
+  # and `cargo test --lib` runs the shell's unit tests natively on each OS.
+  # Full bundling stays in release.yml on tag push.
+  tauri-cross-platform:
+    name: Tauri shell check (${{ matrix.label }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS
+            rust_target: aarch64-apple-darwin
+          - os: windows-2022
+            label: Windows
+            rust_target: x86_64-pc-windows-msvc
+          - os: ubuntu-24.04
+            label: Linux
+            rust_target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      # Per-target cache key so we don't conflict with the release matrix.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri -> target
+          key: ${{ matrix.rust_target }}-check
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      # Linux is the only host with non-trivial Tauri build deps —
+      # webkit2gtk + libayatana-appindicator + xdo. Mirror release.yml.
+      - name: Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential curl wget file libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            libasound2-dev
+
+      - name: Cache bun deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock', 'bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install frontend deps
+        working-directory: frontend
+        # --frozen-lockfile so a frontend/package.json change that forgets to
+        # regenerate the root bun.lock fails HERE (fast) instead of only in the
+        # Docker build (deploy/Dockerfile), which is what reddened main on #485.
+        run: bun install --frozen-lockfile
+
+      # tauri-build's setup hook reads tauri.conf.json's `frontendDist`
+      # ("../dist"), which only exists after a frontend build. Without this,
+      # `cargo check` would fail on a fresh checkout because the embedded
+      # asset map can't resolve.
+      - name: Build frontend (for tauri.conf.json frontendDist)
+        working-directory: frontend
+        run: bun run build
+
+      - name: Cargo check (Tauri shell)
+        working-directory: frontend/src-tauri
+        run: cargo check --target ${{ matrix.rust_target }} --message-format=short
+
+      # `cargo check` never compiles #[cfg(test)] code, so without this the
+      # shell's unit tests (crash.rs, reset.rs, commands.rs, …) neither build
+      # nor run anywhere in CI. --lib scopes it to the unit tests; each
+      # matrix target equals its host triple, so the test binary runs
+      # natively. Codegen is warmed by the rust-cache above.
+      - name: Cargo test (Tauri shell unit tests)
+        working-directory: frontend/src-tauri
+        run: cargo test --lib --target ${{ matrix.rust_target }} --message-format=short
+
+      # Backend-lifecycle fault-injection harness: real child processes die
+      # scripted deaths through the OMNIVOICE_BACKEND_CMD seam, and each
+      # scenario asserts the user-visible diagnosis names the actual cause
+      # (port conflict / traceback root cause / spawn failure / timeout /
+      # crash-loop exhaustion / signal 9 / deliberate replace / deferred-
+      # startup step). Serial: the scenarios share process-global state
+      # (env vars, crash store, kill-intended flag) by design.
+      - name: Cargo test (backend lifecycle harness)
+        working-directory: frontend/src-tauri
+        run: cargo test --test backend_lifecycle --target ${{ matrix.rust_target }} --message-format=short -- --test-threads=1
+
+  # ── Cross-platform Python runtime smoke (Phase 0 GATE-02) ───────────────
+  # Loads the frozen tests/fixtures/omnivoice_data/ fixture and boots the
+  # FastAPI app in-process via TestClient on macOS/Windows/Linux. Catches
+  # platform-specific Python import / path bugs that the Linux-only `test`
+  # job above misses. Narrow scope (tests/smoke/ only) — full pytest stays
+  # on Linux until Phase 1's INST-01 lands setuptools for WhisperX.
+  smoke-matrix:
+    name: Smoke (${{ matrix.label }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS
+            backend_supported: true
+          - os: macos-15-intel
+            label: macOS Intel
+            backend_supported: false
+          - os: windows-2022
+            label: Windows
+            backend_supported: true
+          - os: ubuntu-22.04
+            label: Linux
+            backend_supported: true
+    runs-on: ${{ matrix.os }}
+    # Priced for a COLD `uv sync`, on every platform.
+    #
+    # The previous split (Windows 25, Linux/macOS 10) came from a warm-cache
+    # measurement — Linux and macOS finish in ~65 s when setup-uv restores its
+    # cache, so 10 looked generous. Then run 30439640107 hit
+    # "Failed to restore: Cache service responded with 400", Linux installed
+    # torch from scratch, and the leg was killed at 10m17s. The 65 s was the
+    # cache, not the platform.
+    #
+    # A cache miss is not rare enough to treat as an outage (GitHub's cache
+    # service 400s, a lockfile change invalidates the key, a new runner image
+    # starts empty), and a timeout here is self-perpetuating: the leg dies
+    # before the post-step saves the cache, so the next run is cold too.
+    # 25 everywhere is still bounded — a genuinely wedged job is caught in
+    # minutes, not hours — and warm runs land nowhere near it.
+    timeout-minutes: 25
+    env:
+      # Restricted-network resilience (RESEARCH Pitfall #6) — keeps uv from
+      # giving up on the first slow PyPI / python-build-standalone fetch.
+      UV_HTTP_TIMEOUT: "120"
+      UV_HTTP_RETRIES: "5"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # ffmpeg + libsndfile are needed by soundfile / audio fixtures even
+      # though the silence WAV doesn't decode anything heavy — keeps test
+      # collection from import-erroring on optional audio modules.
+      - name: System deps (macOS)
+        if: runner.os == 'macOS' && matrix.backend_supported
+        run: brew install ffmpeg libsndfile || true
+
+      - name: System deps (Windows)
+        if: runner.os == 'Windows' && matrix.backend_supported
+        shell: bash
+        run: |
+          # The community chocolatey feed 50x's intermittently (broke PR runs on
+          # 2026-07-20 and 2026-07-28) — retry with backoff before failing.
+          #
+          # Test the OUTCOME, not choco's exit code. On 2026-07-28 the feed
+          # returned 503, choco reported "Unable to find package 'ffmpeg'" and
+          # "installed 0/0 packages" — and still exited 0. The `&& break` that
+          # was supposed to guard this fired on the first attempt, no retry ran,
+          # and the job died one line later on `ffmpeg: command not found`.
+          # A retry that trusts a lying exit code is not a retry.
+          for i in 1 2 3; do
+            choco install ffmpeg -y --no-progress || true
+            hash -r 2>/dev/null || true
+            if command -v ffmpeg >/dev/null 2>&1; then break; fi
+            # No backoff after the last attempt — there is no fourth try to
+            # wait for, and sleeping 90s only delays an already-doomed job.
+            if [ "$i" -eq 3 ]; then
+              echo "choco failed to produce ffmpeg after 3 attempts"
+              break
+            fi
+            echo "choco attempt $i did not produce ffmpeg — retrying in $((i * 30))s"
+            sleep $((i * 30))
+          done
+          # Chocolatey is one distribution channel, not the dependency. When
+          # its feed is down across every retry (2026-08-13: three attempts,
+          # three 'installed 0/1'), fall back to the static gyan.dev release
+          # build GitHub mirror — the same binary, no feed in the path.
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            echo "::warning::choco feed down — falling back to static ffmpeg build"
+            curl -fsSL --retry 3 -o /tmp/ffmpeg.zip \
+              https://github.com/GyanD/codexffmpeg/releases/download/7.1/ffmpeg-7.1-essentials_build.zip
+            unzip -q /tmp/ffmpeg.zip -d /tmp/ffmpeg
+            bindir=$(dirname "$(find /tmp/ffmpeg -name ffmpeg.exe | head -1)")
+            echo "$bindir" >> "$GITHUB_PATH"
+            export PATH="$bindir:$PATH"
+          fi
+          ffmpeg -version
+
+      - name: System deps (Linux)
+        if: runner.os == 'Linux' && matrix.backend_supported
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.3
+        with:
+          packages: ffmpeg libsndfile1
+          version: 1.0
+
+      - name: Install Python deps (including PocketTTS)
+        # PocketTTS is an opt-in engine, but installing its pinned extra here
+        # proves that the same dependency set resolves on every supported local
+        # backend host. The Intel-Mac leg separately pins the documented
+        # unsupported contract: its UI is a remote-backend client only (#889).
+        if: matrix.backend_supported
+        run: bash scripts/uv-sync-retry.sh --extra pockettts
+
+      - name: Verify the documented Intel Mac contract
+        if: ${{ !matrix.backend_supported }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import platform
+          import tomllib
+
+          assert platform.system() == "Darwin"
+          assert platform.machine() == "x86_64"
+          root = Path.cwd()
+          project = tomllib.loads((root / "pyproject.toml").read_text("utf-8"))
+          extra = project["project"]["optional-dependencies"]["pockettts"]
+          assert extra == [
+              "pocket-tts==2.1.0 ; sys_platform != 'darwin' or platform_machine != 'x86_64'"
+          ]
+          docs = (root / "docs/install/macos.md").read_text("utf-8")
+          assert "Intel Macs are not supported" in docs
+          PY
+
+      - name: Run smoke tests
+        if: matrix.backend_supported
+        run: uv run --no-sync pytest tests/smoke/ -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"  # same no-silent-downloads guard as the main pytest job
+          HF_HUB_CACHE: ${{ runner.temp }}/pockettts-empty-hf-cache
+
+      # Artifact commits depend on native Windows rename/replace semantics;
+      # Linux emulation cannot exercise sharing rules or path parsing.
+      - name: Remote-worker artifact paths (Windows)
+        if: runner.os == 'Windows' && matrix.backend_supported
+        run: uv run --no-sync pytest tests/test_worker_upload_server.py tests/test_worker_server_integrity.py -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"
+          HF_HUB_CACHE: ${{ runner.temp }}/worker-artifact-empty-hf-cache

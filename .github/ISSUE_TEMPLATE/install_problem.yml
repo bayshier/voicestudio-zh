@@ -1,0 +1,85 @@
+name: 🧩 安装 / 首次运行问题
+description: 应用无法安装、完成初始化、下载模型，或无法得到第一个可用结果。
+title: "[Install] "
+labels: ["install", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        首次运行就能*开箱即用*是本项目的全部意义——很抱歉这次没有做到，我们来把它修好。
+        如果应用已经启动到能打开设置的程度，**设置 → 关于 → “保存诊断包”** 能覆盖下面大部分信息；否则只填下面的字段就够了。
+  - type: dropdown
+    id: stage
+    attributes:
+      label: 卡在了哪一步？
+      options:
+        - 应用无法启动 / 窗口空白或显示异常
+        - Python / uv 环境引导
+        - 模型下载（HuggingFace）
+        - 引擎安装（CosyVoice / IndexTTS / MLX 等）
+        - 首次合成 / 配音始终无法完成
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: 错误信息
+      description: 确切的报错文本、堆栈回溯，或你在屏幕上看到的内容。
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - macOS（Apple Silicon）
+        - macOS（Intel）
+        - Windows（x64）
+        - Linux（AppImage）
+        - Linux（.deb）
+        - Linux（其他 / 源码安装）
+        - Docker
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 你是如何安装的？
+      options:
+        - 桌面应用（安装包 / AppImage）
+        - Docker 镜像
+        - 源码安装（uv sync）
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      placeholder: "v0.3.5（或安装器构建 / git SHA）"
+    validations:
+      required: true
+  - type: dropdown
+    id: network
+    attributes:
+      label: 网络环境（模型/依赖下载）
+      description: 受限网络是已知的初始化失败来源（镜像回退）。
+      options:
+        - 正常 / 无限制
+        - 公司代理 / 防火墙之后
+        - 访问受限地区（如中国大陆、俄罗斯）
+        - 离线 / 物理隔离
+        - 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 诊断包
+      description: 拖入诊断包，或粘贴安装/初始化日志。无界面自检命令——`python backend/main.py --diagnose`。
+      render: text
+  - type: textarea
+    id: tried
+    attributes:
+      label: 你已经尝试过哪些办法？

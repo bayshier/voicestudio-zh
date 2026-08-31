@@ -1,0 +1,48 @@
+name: ✨ 功能请求
+description: 建议一项改进或一项新能力。
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交之前
+      options:
+        - label: 我已就这个想法搜索过[现有 issue](https://github.com/debpalash/VoiceStudio/issues?q=is%3Aissue)和[讨论区](https://github.com/debpalash/VoiceStudio/discussions)。
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 它解决什么问题？
+      description: 它针对的使用场景 / 痛点（“当我……的时候，我没办法……”）。
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: 建议的方案
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的替代方案
+  - type: dropdown
+    id: area
+    attributes:
+      label: 领域
+      options:
+        - 语音克隆
+        - 语音设计
+        - 视频配音
+        - 实时听写
+        - 有声书 / 故事（长内容）
+        - TTS/ASR 引擎
+        - 安装 / 设置 / 打包
+        - 其他
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        > VoiceStudio 是**本地优先**的——核心功能离线可用，无需账户、API 密钥或云端调用，并且在 macOS/Windows/Linux 上行为一致。符合这些约束的提案最容易落地。

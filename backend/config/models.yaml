@@ -1,0 +1,313 @@
+# ── VoiceStudio — Model Catalog ─────────────────────────────────────
+#
+# This file is the source of truth for all known HuggingFace models.
+# The backend loads it at startup via `load_model_catalog()`.
+#
+# To add a model: append an entry with the fields below.
+# To remove: delete the entry. The UI will stop showing it immediately.
+#
+# Fields:
+#   repo_id    (required) — HuggingFace repository ID
+#   label      (required) — Human-readable display name
+#   role       (required) — TTS | ASR | Diarisation
+#   size_gb    (required) — Approximate download size in GiB
+#   required   (optional) — true if the app needs this model to function.
+#                            Only the TTS model is required: the app boots and
+#                            generates speech with it alone. ASR is optional and
+#                            installed on demand (curated picks below).
+#   platforms  (optional) — restrict to specific OS+arch tags (e.g. darwin-arm64, cuda)
+#   curated_on (optional) — host tags for which this model is a curated
+#                            "best for your system" pick, surfaced by
+#                            GET /setup/recommendations and the wizard/Settings.
+#                            Tags: all | darwin-arm64 | darwin-x86_64 | cuda |
+#                            rocm | cpu (cpu = no GPU acceleration on this host).
+#                            Unlike `platforms` this never hides a model — it
+#                            only drives recommendations.
+#   note       (optional) — shown in the UI as a tooltip/footnote
+#   config_only (optional) — true for pipeline repos that ship no weight file of
+#                            their own (weights live in referenced sub-repos). Such
+#                            a cache is legitimately tiny, so the truncated-download
+#                            (weights-missing) detector must NOT flag it incomplete.
+# ─────────────────────────────────────────────────────────────────────────
+
+models:
+  # ── Required ──────────────────────────────────────────────────────────
+
+  - repo_id: "k2-fsa/OmniVoice"
+    label: "VoiceStudio TTS (k2-fsa/OmniVoice, 600+ languages, zero-shot)"
+    role: TTS
+    size_gb: 2.4
+    required: true
+    curated_on: [all]
+
+  # ── ASR (optional — curated per platform) ─────────────────────────────
+  # No ASR model is required to boot: TTS-only installs work. Dubbing,
+  # dictation, and clone-reference transcription prompt for the curated
+  # pick when first used.
+
+  - repo_id: "Systran/faster-whisper-large-v3"
+    label: "Whisper large-v3 (faster-whisper — cross-platform, 99 langs)"
+    role: ASR
+    size_gb: 2.9
+    curated_on: [cuda, rocm, cpu, darwin-x86_64]
+    note: "The universal pick: best word-timestamp robustness for dubbing, runs on CUDA and CPU everywhere. On Apple Silicon prefer the MLX build."
+
+  - repo_id: "mlx-community/whisper-large-v3-mlx"
+    label: "Whisper large-v3 (MLX — best for Apple Silicon)"
+    role: ASR
+    size_gb: 3.0
+    platforms: [darwin-arm64]
+    curated_on: [darwin-arm64]
+    note: "Metal-accelerated on Apple Silicon — the curated dubbing/transcription pick on this hardware."
+
+  - repo_id: "mlx-community/whisper-large-v3-turbo"
+    label: "Whisper large-v3 Turbo (MLX — fastest dictation)"
+    role: ASR
+    size_gb: 1.6
+    platforms: [darwin-arm64]
+    curated_on: [darwin-arm64]
+    note: "5× faster than large-v3, 0.8B params. Best for live dictation on Apple Silicon."
+
+  - repo_id: "openai/whisper-large-v3"
+    label: "Whisper large-v3 (PyTorch — GPU path for AMD/ROCm)"
+    role: ASR
+    size_gb: 3.1
+    platforms: [cuda, rocm]
+    curated_on: [rocm]
+    note: "CTranslate2 has no ROCm backend, so on AMD GPUs this PyTorch build is the accelerated route."
+
+  - repo_id: "mlx-community/whisper-tiny-mlx"
+    label: "Whisper tiny (MLX ASR — fast fallback)"
+    role: ASR
+    size_gb: 0.08
+    platforms: [darwin-arm64]
+
+  - repo_id: "deepdml/faster-whisper-large-v3-turbo-ct2"
+    label: "Whisper large-v3 Turbo (5× faster, 0.8B)"
+    role: ASR
+    size_gb: 1.6
+    curated_on: [cuda, cpu]
+    note: "Best speed/quality tradeoff. 5× faster than large-v3 with minimal WER loss. Community CTranslate2 conversion (no official Systran/OpenAI turbo repo) — re-verify availability on catalog audits."
+
+  - repo_id: "Systran/faster-distil-whisper-large-v3"
+    label: "Distil-Whisper large-v3 (distilled, fast)"
+    role: ASR
+    size_gb: 1.5
+    note: "Knowledge-distilled from large-v3. Good accuracy at higher speed."
+
+  - repo_id: "Systran/faster-whisper-medium"
+    label: "Whisper medium (balanced, lower VRAM)"
+    role: ASR
+    size_gb: 1.5
+    note: "Good balance of speed and accuracy. Half the VRAM of large-v3."
+
+  - repo_id: "Systran/faster-whisper-small"
+    label: "Whisper small (fast preview, low VRAM)"
+    role: ASR
+    size_gb: 0.5
+    note: "Quick previews and testing. ~2× faster than medium."
+
+  - repo_id: "Systran/faster-whisper-base"
+    label: "Whisper base (minimal, fastest Whisper)"
+    role: ASR
+    size_gb: 0.15
+    note: "Lowest accuracy but near-instant. Good for rapid iteration."
+
+  # ── Non-Whisper ASR (from Open ASR Leaderboard) ────────────────────────
+
+  - repo_id: "nvidia/parakeet-tdt-0.6b-v3"
+    label: "Parakeet TDT 0.6B v3 (NVIDIA — SOTA, 25+ langs)"
+    role: ASR
+    size_gb: 1.2
+    platforms: [cuda]
+    note: "Beats Whisper large-v3 on English benchmarks. Requires nemo_toolkit[asr]."
+
+  - repo_id: "nvidia/parakeet-tdt-0.6b-v2"
+    label: "Parakeet TDT 0.6B v2 (NVIDIA — English + punctuation)"
+    role: ASR
+    size_gb: 1.2
+    platforms: [cuda]
+    note: "English-optimized with punctuation/capitalization. Requires nemo_toolkit[asr]."
+
+  - repo_id: "mlx-community/parakeet-tdt-0.6b-v3"
+    label: "Parakeet TDT 0.6B v3 (MLX — Apple Silicon, 25 EU langs)"
+    role: ASR
+    size_gb: 1.2
+    platforms: [darwin-arm64]
+    curated_on: [darwin-arm64]
+    note: "The Parakeet tier for Apple Silicon: 25 European languages, TDT word timestamps, ~2 GB unified memory, dictation-grade speed on the GPU via parakeet-mlx. Installing it makes dictation/capture prefer it automatically when your system language is one of the 25 covered (European) languages — other languages (CJK, Arabic, …) keep the multilingual Whisper engine so dictation coverage never regresses."
+
+  - repo_id: "UsefulSensors/moonshine-base"
+    label: "Moonshine base (edge-optimized, 61M, ONNX)"
+    role: ASR
+    size_gb: 0.12
+    note: "Variable-length processing, sub-200ms latency. Great for CPU/edge. Requires moonshine-onnx."
+
+  - repo_id: "UsefulSensors/moonshine-tiny"
+    label: "Moonshine tiny (edge-optimized, 27M, ONNX)"
+    role: ASR
+    size_gb: 0.05
+    note: "Smallest/fastest Moonshine, sub-200ms latency. Lower accuracy than base. Requires moonshine-onnx."
+
+  # ── sherpa-onnx live dictation (ONNX, CPU, streaming + offline) ────────
+  # Live faster-than-real-time dictation via the k2-fsa/sherpa-onnx runtime.
+  # `engine: sherpa-onnx`, `dictation_id` (backend model id), and `tag`
+  # (offline | streaming) are extra fields the model-store list passes through
+  # so the dictation UI can filter/group these (role=ASR, engine=sherpa-onnx).
+  # Requires `uv add sherpa-onnx` (CPU wheels, all platforms).
+
+  - repo_id: "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"
+    label: "Parakeet TDT v3 (sherpa-onnx — dictation, 25 EU langs)"
+    role: ASR
+    size_gb: 0.67
+    engine: sherpa-onnx
+    dictation_id: sherpa-parakeet-tdt-v3
+    tag: offline
+    note: "Multilingual European-language dictation. CPU, int8 ONNX. Requires sherpa-onnx."
+
+  - repo_id: "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
+    label: "Parakeet TDT v2 (sherpa-onnx — dictation, English)"
+    role: ASR
+    size_gb: 0.66
+    engine: sherpa-onnx
+    dictation_id: sherpa-parakeet-tdt-v2
+    tag: offline
+    note: "English live dictation. CPU, int8 ONNX. Requires sherpa-onnx."
+
+  - repo_id: "csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
+    label: "Zipformer Bilingual (sherpa-onnx — streaming, zh+en)"
+    role: ASR
+    size_gb: 0.2
+    engine: sherpa-onnx
+    dictation_id: sherpa-zipformer-bilingual-zh-en
+    tag: streaming
+    note: "True streaming partials as you speak (zh+en). CPU. Requires sherpa-onnx."
+
+  - repo_id: "csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en"
+    label: "Paraformer Bilingual (sherpa-onnx — streaming, zh+en)"
+    role: ASR
+    size_gb: 0.24
+    engine: sherpa-onnx
+    dictation_id: sherpa-paraformer-bilingual-zh-en
+    tag: streaming
+    note: "True streaming partials (zh+en). CPU. Requires sherpa-onnx."
+
+  - repo_id: "csukuangfj/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17"
+    label: "Zipformer Streaming EN 20M (sherpa-onnx — streaming, English)"
+    role: ASR
+    size_gb: 0.044
+    engine: sherpa-onnx
+    dictation_id: sherpa-zipformer-en-20m
+    tag: streaming
+    note: "Tiny English streaming model, very low latency. CPU. Requires sherpa-onnx."
+
+  - repo_id: "csukuangfj/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23"
+    label: "Zipformer Streaming ZH 14M (sherpa-onnx — streaming, Chinese)"
+    role: ASR
+    size_gb: 0.025
+    engine: sherpa-onnx
+    dictation_id: sherpa-zipformer-zh-14m
+    tag: streaming
+    note: "Tiny Chinese streaming model, very low latency. CPU. Requires sherpa-onnx."
+
+  - repo_id: "csukuangfj/sherpa-onnx-whisper-tiny"
+    label: "Whisper Tiny (sherpa-onnx — dictation, 90+ langs)"
+    role: ASR
+    size_gb: 0.104
+    engine: sherpa-onnx
+    dictation_id: sherpa-whisper-tiny
+    tag: offline
+    curated_on: [all]
+    note: "Recommended cross-platform dictation default (auto-detect). CPU, int8 ONNX. Requires sherpa-onnx."
+
+  # ── Diarisation ───────────────────────────────────────────────────────
+
+  - repo_id: "pyannote/speaker-diarization-3.1"
+    label: "pyannote speaker diarisation (multi-speaker videos)"
+    role: Diarisation
+    size_gb: 0.8
+    config_only: true  # pipeline repo; real weights live in referenced sub-repos
+    note: "Needs an HF_TOKEN with license accepted."
+
+  # ── Optional TTS ──────────────────────────────────────────────────────
+
+  - repo_id: "OpenMOSS-Team/MOSS-TTS-Nano-100M"
+    label: "MOSS-TTS-Nano 100M (20 langs, CPU-realtime)"
+    role: TTS
+    size_gb: 0.4
+
+  - repo_id: "KittenML/kitten-tts-mini-0.8"
+    label: "KittenTTS (English, 8 preset voices, CPU realtime)"
+    role: TTS
+    size_gb: 0.08
+    curated_on: [all]
+
+  - repo_id: "openbmb/VoxCPM2"
+    label: "VoxCPM2 (30 languages, voice cloning and design)"
+    role: TTS
+    size_gb: 5.0
+    curated_on: [cuda]
+
+  - repo_id: "FunAudioLLM/Fun-CosyVoice3-0.5B-2512"
+    label: "CosyVoice 3 0.5B (multilingual zero-shot)"
+    role: TTS
+    size_gb: 9.8
+    curated_on: [cuda]
+
+  - repo_id: "lj1995/GPT-SoVITS"
+    label: "GPT-SoVITS pretrained weights"
+    role: TTS
+    size_gb: 2.0
+    curated_on: [cuda]
+
+  # ── mlx-audio engines (Apple Silicon only) ────────────────────────────
+
+  - repo_id: "mlx-community/Kokoro-82M-bf16"
+    label: "Kokoro 82M (8 langs, small, mlx-audio default)"
+    role: TTS
+    size_gb: 0.15
+    curated_on: [darwin-arm64]
+    note: "Apple Silicon only — via mlx-audio backend."
+    platforms: [darwin-arm64]
+
+  - repo_id: "mlx-community/csm-1b-8bit"
+    label: "CSM 1B (voice cloning, mlx-audio)"
+    role: TTS
+    size_gb: 1.1
+    note: "Apple Silicon only — via mlx-audio backend."
+    platforms: [darwin-arm64]
+
+  - repo_id: "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-4bit"
+    label: "Qwen3-TTS 1.7B 4bit (voice design, mlx-audio)"
+    role: TTS
+    size_gb: 1.4
+    note: "Apple Silicon only — via mlx-audio backend."
+    platforms: [darwin-arm64]
+
+  - repo_id: "mlx-community/Dia-1.6B"
+    label: "Dia 1.6B (expressive, mlx-audio)"
+    role: TTS
+    size_gb: 3.2
+    note: "Apple Silicon only — via mlx-audio backend."
+    platforms: [darwin-arm64]
+
+  - repo_id: "mlx-community/Llama-OuteTTS-1.0-1B-4bit"
+    label: "Llama-OuteTTS 1.0 1B 4bit (voice clone, mlx-audio)"
+    role: TTS
+    size_gb: 0.8
+    note: "Apple Silicon only — via mlx-audio backend."
+    platforms: [darwin-arm64]
+
+  - repo_id: "mlx-community/Chatterbox-TTS-4bit"
+    label: "Chatterbox TTS 4bit (mlx-audio)"
+    role: TTS
+    size_gb: 0.5
+    note: "Apple Silicon only — via mlx-audio backend."
+    platforms: [darwin-arm64]
+
+  - repo_id: "mlx-community/MeloTTS-English-v3-MLX"
+    label: "MeloTTS English v3 (mlx-audio)"
+    role: TTS
+    size_gb: 0.2
+    note: "Apple Silicon only — via mlx-audio backend."
+    platforms: [darwin-arm64]

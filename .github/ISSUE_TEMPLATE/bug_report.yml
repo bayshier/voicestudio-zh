@@ -1,0 +1,106 @@
+name: 🐛 缺陷报告
+description: 某些功能工作不正常或崩溃（首次运行/安装问题请改用安装模板）。
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢帮助改进 VoiceStudio！🎙️
+
+        **最快的修复路径：** **设置 → 关于 → “保存诊断包”** 会生成一个 zip（自检 + 近期错误 + 脱敏后的日志尾部）——把它拖到这个 issue 上，下面大多数环境问题就会自动得到解答。无界面环境：`python backend/main.py --diagnose`（加 `--deep` 可试载引擎）。
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交之前
+      options:
+        - label: 我搜索过[现有 issue](https://github.com/debpalash/VoiceStudio/issues?q=is%3Aissue)，这不是重复报告。
+          required: true
+        - label: 我使用的是最新发布版（或 `main`）——旧版本可能已经修复。
+          required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么？
+      description: 请清晰描述这个缺陷，如有请附上确切的错误文本 / 提示信息。
+      placeholder: "点击“生成”后语音克隆失败，提示 '…'。"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 你期望的结果是什么？
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - macOS（Apple Silicon）
+        - macOS（Intel）
+        - Windows（x64）
+        - Linux（AppImage）
+        - Linux（.deb）
+        - Linux（其他 / 源码安装）
+        - Docker
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 你是如何安装的？
+      options:
+        - 桌面应用（安装包 / AppImage）
+        - Docker 镜像
+        - 源码安装（uv sync）
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 设置 → 关于（例如 v0.3.5），或 Docker 标签 / git SHA。
+      placeholder: "v0.3.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: 计算设备
+      options:
+        - NVIDIA GPU（CUDA）
+        - AMD GPU（ROCm）
+        - Apple Silicon（MPS）
+        - Intel GPU（XPU）
+        - 仅 CPU
+        - 不确定
+    validations:
+      required: true
+  - type: input
+    id: engine
+    attributes:
+      label: 当前使用的 TTS/ASR 引擎
+      description: 设置 → 引擎（例如 omnivoice、cosyvoice、indextts2、whisperx）。
+      placeholder: "omnivoice"
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 诊断包
+      description: 把诊断包拖到这里，或从**设置 → 日志**粘贴相关行。密钥会被自动脱敏。
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: 还有其他要补充的吗？
+      description: 截图、触发问题的输入内容、内存/显存等。

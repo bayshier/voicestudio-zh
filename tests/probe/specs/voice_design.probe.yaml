@@ -1,0 +1,22 @@
+# L4 voice-design spec — synthesize from gender/age/accent/pitch/style params.
+# Verification reuses the audio-correctness ladder (design quality stays human-
+# judgment-only). The test supplies the generated audio; a live run plugs in the
+# real /generate (design) output.
+feature: voice-design
+layer: media
+steps:
+  - actor: api
+    call: POST /generate (voice design params)
+    body: { gender: female, age: adult, accent: us, pitch: 1.0, style: calm, text: "Designing a brand new voice." }
+    capture: { audio: $.output_path }
+judge:
+  subject: $.audio
+  checks:
+    - artifact_exists
+    - decodes
+    - no_nan
+    - not_clipping: { peak_ceiling: 0.999 }
+    - duration_between: [0.8, 6.0]
+    - not_silent: { rms_floor_db: -45 }
+    - asr_wer_below: { expected: "Designing a brand new voice.", max: 0.2 }
+advisory: []

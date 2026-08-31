@@ -1,0 +1,340 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omnivoice"
+version = "0.5.1"
+description = "VoiceStudio — a private, local-first studio for voice cloning, speech generation, dubbing, transcription, and audiobooks"
+readme = "README.md"
+# Free and open-source under the GNU Affero General Public License v3 (see
+# LICENSE). A commercial license is available for proprietary/closed-source use
+# without AGPL obligations — contact OmniVoice@palash.dev. The bundled omnivoice/
+# TTS model by Han Zhu remains Apache-2.0 upstream (Apache-2.0 is AGPL-compatible).
+license = "AGPL-3.0-only"
+requires-python = ">=3.11"
+authors = [{name = "Debpalash"}, {name = "Han Zhu"}]
+keywords = [
+    "tts",
+    "text-to-speech",
+    "speech-synthesis",
+    "zero-shot",
+    "multilingual",
+    "diffusion",
+    "voice-cloning",
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "torch>=2.4",
+    "torchaudio>=2.4",
+    "torchvision>=0.19",
+    "transformers>=5.5.0",
+    "accelerate",
+    "pydub",
+    "gradio>=6.15.1",
+    "tensorboardX",
+    "webdataset",
+    "numpy",
+    "soundfile",
+    # whisperx / faster-whisper import `pkg_resources` at runtime. setuptools
+    # 80+ DROPPED the bundled pkg_resources, so an unpinned ">=75" now resolves
+    # to a version WITHOUT it → "No module named 'pkg_resources'", which both
+    # breaks WhisperX transcription and makes its is_available() report false
+    # ("No ASR backend is ready"). Cap below 80 so pkg_resources stays present
+    # (issue #224; also #58). Revisit when whisperx/faster-whisper drop the
+    # pkg_resources dependency.
+    "setuptools>=75,<80",
+    "psutil>=7.2.2",
+    # Pinned to 3.x — pyannote 4.x removed `use_auth_token` from `Inference`
+    # which whisperx 3.4.2 still passes, blowing up `whisperx.load_model()`
+    # with TypeError. whisperx tests against pyannote 3.3.2+, so we track
+    # that range and revisit when whisperx releases a 4-compatible build.
+    "pyannote-audio>=3.3.2,<4.0",
+    "pyinstaller>=6.19.0",
+    "imageio-ffmpeg>=0.6.0",
+    # Directly used by video_context; 12.1 adds get_flattened_data(), the
+    # replacement for getdata() ahead of its Pillow 14 removal.
+    "pillow>=12.1.0",
+    "pedalboard>=0.9.14",
+    # Primary ASR — cross-platform, CTranslate2-based under the hood. WhisperX
+    # adds wav2vec2 forced alignment (±10-30 ms word timing vs Whisper's own
+    # ±100-300 ms) which directly improves lip-sync on the dub pipeline.
+    # Pulls `faster-whisper` transitively, so a WhisperX install also provides
+    # the plain faster-whisper backend as a fallback for rare-language audio
+    # where no wav2vec2 alignment model exists.
+    "whisperx>=3.1.0",
+    "faster-whisper>=1.0.0",
+    # Apple Silicon-only speedup; skipped everywhere else so `uv sync` can
+    # succeed on Linux/Windows/mac-Intel (no mlx wheels exist for those).
+    "mlx-whisper>=0.2.1 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    # Apple Silicon-only rich TTS library — 14+ engines (Kokoro, CSM, Dia,
+    # Qwen3-TTS, Chatterbox, MeloTTS, OuteTTS, Spark, Higgs-Audio, Voxtral,
+    # …). Gives mac-ARM users a broad engine picker in Settings. Also gated
+    # by platform markers because it depends on mlx (Apple Silicon only).
+    "mlx-audio>=0.3.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    # Apple Silicon-only Parakeet TDT v3 ASR (mlx-community/parakeet-tdt-0.6b-v3
+    # via MLX). Gives mac-ARM the Parakeet tier CUDA/CPU users get from
+    # sherpa/NeMo: 25 European languages, TDT token/word timestamps, ~2 GB
+    # unified memory, dictation-grade speed on the GPU. Same platform gate as
+    # mlx-whisper/mlx-audio (depends on mlx — no wheels elsewhere).
+    "parakeet-mlx>=0.5.2 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "demucs>=4.0.1",
+    "yt-dlp>=2026.7.4",
+    # >=1.16: alembic.ini relies on path_separator=os (new in 1.16.0), which
+    # older alembic silently ignores and then colon-splits C:\ paths /
+    # space-splits POSIX paths containing spaces.
+    "alembic>=1.16",
+    # Lightweight English TTS "Turbo" tier — 25-80 MB ONNX model, 8 preset
+    # voices (Bella, Jasper, Luna, Bruno, Rosie, Hugo, Kiki, Leo), CPU
+    # realtime on any platform. Complements OmniVoice's 2.4 GB multilingual
+    # zero-shot clone: when the caller just needs fast English narration with
+    # no reference sample, this is ~100× smaller + ~10× faster. Pinned to
+    # the exact wheel because the project is in developer preview and the
+    # 0.x API is explicitly unstable.
+    "kittentts @ https://github.com/KittenML/KittenTTS/releases/download/0.8.1/kittentts-0.8.1-py3-none-any.whl",
+    # Invisible audio watermarking — embeds imperceptible neural watermarks
+    # in AI-generated speech for provenance detection (SynthID-like).
+    # MIT license, ~5ms per segment on CPU, 16-bit message payload.
+    "audioseal>=0.1.3",
+    # API server — always needed for the Studio UI.
+    # 0.137 makes included routers lazy `_IncludedRouter` entries, breaking
+    # route-table consumers that require the concrete HTTP/WebSocket routes.
+    "fastapi<0.137",
+    "scalar-fastapi",
+    "uvicorn",
+    "python-multipart>=0.0.31",
+    # Required by uvicorn for WebSocket support (real-time sidebar events).
+    "websockets",
+    # Offline translation — listed as builtin in the engine registry so the
+    # "Argos (Local, Fast)" option in the Dub tab works out-of-the-box.
+    "argostranslate>=1.9.0",
+    # Phase 1 AUTH-02: Fernet symmetric encryption + scrypt KDF for the
+    # at-rest HF token in the SQLite settings store. Pulled in directly so
+    # we don't depend on a transitive arrival via pyannote/huggingface_hub
+    # (Assumption A1 in RESEARCH.md was checked at execute-time and proved
+    # false — `cryptography` is not on the install path today).
+    "cryptography>=41",
+    "mcp>=1.28.1,<2",
+    # Opt-in product analytics (core/analytics.py). Inert unless the build ships a
+    # POSTHOG_PROJECT_TOKEN *and* the user opts in — default OFF. No exception
+    # autocapture (it would ship raw tracebacks past core.failure.sanitize()).
+    "posthog>=3.7",
+    # Fast model downloads (FDL plan). huggingface_hub arrives transitively via
+    # transformers, but we pin it directly so the Xet fast-download path can't
+    # silently disappear on a resolve, and we pull `hf-xet` explicitly: it is
+    # the content-defined-chunking, parallel byte-range downloader that gives
+    # IDM/uGet-style speed for Xet-backed repos (the entire current model
+    # catalog — FDL spike 2026-06-13; plan removed with .planning/, see git history).
+    # hf-xet is 64-bit only (fine for every OmniVoice target). Do NOT add
+    # `hf_transfer` — it is deprecated in favour of Xet and breaks progress
+    # callbacks (the accurate-progress work in this same plan depends on tqdm).
+    "huggingface_hub>=1.7",
+    "hf-xet>=1.1",
+    # Audiobook PDF ingest (/audiobook/import). Pure-Python, MIT, zero native
+    # deps → identical behaviour on macOS/Windows/Linux (default-parity rule).
+    # EPUB + plaintext stay stdlib-only; only PDF needs a real parser, and
+    # pypdf is the lightest one that ships no C extensions.
+    "pypdf>=4.0",
+    # LLM client for Cinematic dub refinement, glossary auto-extract, and
+    # LLM-based translation (services.llm_backend / translator / dub_translate
+    # all `from openai import OpenAI`). Talks to any OpenAI-compatible endpoint —
+    # OpenAI, Ollama (http://localhost:11434/v1), LM Studio, vLLM — so it's the
+    # local-first path too (no key, nothing leaves the machine). Pure-Python, no
+    # native deps → identical on macOS/Windows/Linux. Previously undeclared, so
+    # `uv sync` never installed it and Cinematic was dead-on-arrival on every
+    # source install ("Cinematic needs an LLM" even with Ollama running, because
+    # is_available() returned "openai package missing"); the UI's `pip install
+    # openai` hint landed in the wrong interpreter on a managed venv.
+    "openai>=1.40",
+    # sherpa-onnx live-dictation ASR engine (CPU, cross-platform). The thin
+    # `sherpa-onnx` wheel declares `sherpa-onnx-core` only in its *wheel*
+    # metadata (not the sdist), so uv's resolver does NOT pull it transitively
+    # — without core, `import sherpa_onnx` fails at load time (missing
+    # libonnxruntime). Pin core EXPLICITLY so the lock captures it and Docker's
+    # frozen `uv sync` installs a working engine on every platform.
+    "sherpa-onnx>=1.13.3",
+    "sherpa-onnx-core>=1.13.3",
+    # SOCKS proxy support for httpx (#959). huggingface_hub's get_session()
+    # builds an httpx.Client, which raises ImportError AT CONSTRUCTION when
+    # ALL_PROXY/HTTPS_PROXY is socks5:// and socksio isn't importable — every
+    # model load/download 500'd for SOCKS-proxy users ("Using SOCKS proxy, but
+    # the 'socksio' package is not installed"). Same failure shape for the
+    # OpenAI SDK's client. Pure-Python, MIT, zero transitive deps, ~13 KB —
+    # identical on macOS/Windows/Linux. Also in backend.spec hiddenimports:
+    # httpx imports it lazily inside try/except, so PyInstaller's tracer
+    # misses it and frozen installers would stay broken without the entry.
+    "socksio>=1.0",
+    # OS trust store for TLS (#976). Users behind a corporate/antivirus proxy
+    # that TLS-inspects traffic get a raw "[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE]"
+    # on every model install — the TCP connection succeeds, but the proxy's
+    # re-signed certificate is trusted by the OS (Windows CryptoAPI/SChannel)
+    # and not by Python's bundled `certifi` CA list. `truststore` patches
+    # `ssl.SSLContext` to verify against the OS trust store instead. Pure-
+    # Python, MIT, PyPA-maintained, zero transitive deps — same class of fix
+    # as socksio above, identical on macOS/Windows/Linux.
+    "truststore>=0.9",
+    # Numbers→words for the pre-TTS text normalization pass
+    # (services/text_normalization.py). Was already installed transitively;
+    # promoted to a direct dependency because we now import it ourselves.
+    "num2words>=0.5.14",
+    "pip>=26.1.2",
+    # Direct URL (not [tool.uv.sources]) so EVERY installer sees it — Docker's
+    # `uv pip install --system .` reads only project metadata and would try to
+    # resolve a bare name from PyPI, where spaCy models don't exist. Same form
+    # as kittentts above.
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+    # Remote GPU workers (backend/worker/). A core dependency rather than an
+    # extra even though the feature is opt-in: an installer user who enables a
+    # remote worker in Settings cannot run `uv pip install` inside a frozen
+    # app bundle, so shipping the transport separately would make the feature
+    # source-installs-only — a platform/packaging split the parity rule does
+    # not allow. Ships prebuilt wheels for every target we build (cp311
+    # macOS arm64/x86_64, Windows x64, manylinux) and PyInstaller has a
+    # first-party hook, so the frozen build needs no spec changes beyond the
+    # protobuf runtime already present transitively.
+    "grpcio>=1.60",
+    "protobuf>=4.25",
+]
+
+[project.optional-dependencies]
+
+eval = [
+    "jiwer==3.1.0",       # WER
+    "librosa",             # Audio processing
+    "s3prl",               # Speech representation (HuBERT etc.)
+    "funasr",              # ASR models
+    "zhconv",              # Chinese character normalization
+    "zhon",                # Chinese punctuation
+    "unidecode",            # Unicode normalization
+]
+ui = [
+    "gradio>=6.15.1",
+    "gradio_client",
+    "requests",
+]
+# Phase 3 Plan 03-01 — Supertonic-3 opt-in engine. CPU-only ONNX TTS,
+# 31 languages, ~99M params, ~400 MB model on first use. Default
+# `uv sync --no-dev` does NOT install this; users opt in with
+# `uv sync --extra supertonic` after accepting the OpenRAIL-M model
+# license in Settings → Engines.
+#
+# Publisher verified per Plan 03-01 Task 1 (Package Legitimacy Audit):
+#   • PyPI maintainers = Yu Yechan / Juheon Lee / Hyeongju Kim (Supertone Inc.)
+#   • Repository = github.com/supertone-inc/supertonic-py
+#   • Same publisher ships supertonic-js on npm (same maintainer email)
+#   • Wheel inspected: pure-Python, no postinstall scripts, no subprocess/exec
+#     at module top level. ``supertonic.config.MODEL_CONFIGS["supertonic-3"]``
+#     itself pins the HF model revision by SHA — we re-pin to the same
+#     SHA in backend/engines/supertonic3/constants.py for TTS-03.
+supertonic = [
+    "supertonic==1.3.1",
+]
+# PocketTTS opt-in engine. Keep the SDK pinned: its model-loading and voice
+# APIs are the sidecar wire contract. The model weights remain an explicit
+# user download after the Hugging Face access conditions are accepted.
+pockettts = [
+    # pocket-tts requires torch>=2.5; PyTorch no longer publishes macOS x86_64
+    # wheels at those versions. Keep the opt-in extra installable everywhere,
+    # with an explicit engine availability reason on Intel Macs.
+    "pocket-tts==2.1.0 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+]
+
+[project.scripts]
+omnivoice-infer = "omnivoice.cli.infer:main"
+omnivoice-infer-batch = "omnivoice.cli.infer_batch:main"
+omnivoice-demo = "omnivoice.cli.demo:main"
+omnivoice-dub = "omnivoice.cli.dub:main"
+
+[project.urls]
+Homepage = "https://github.com/debpalash/VoiceStudio"
+Repository = "https://github.com/debpalash/VoiceStudio"
+Documentation = "https://github.com/debpalash/VoiceStudio/tree/main/docs"
+"Bug Tracker" = "https://github.com/debpalash/VoiceStudio/issues"
+"Upstream TTS Model" = "https://github.com/k2-fsa/OmniVoice"
+
+[tool.uv.sources]
+# Install PyTorch with CUDA support on Linux/Windows (CUDA doesn't exist for Mac).
+# NOTE: We must explicitly request them as `dependencies` above. These improved
+# versions will not be selected if they're only third-party dependencies.
+torch = [
+  { index = "pytorch-cuda", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and (sys_platform == 'linux' or sys_platform == 'win32')" },
+]
+torchaudio = [
+  { index = "pytorch-cuda", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and (sys_platform == 'linux' or sys_platform == 'win32')" },
+]
+torchvision = [
+  { index = "pytorch-cuda", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and (sys_platform == 'linux' or sys_platform == 'win32')" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+# Use PyTorch built for NVIDIA Toolkit version 12.8.
+# Available versions: https://pytorch.org/get-started/locally/
+url = "https://download.pytorch.org/whl/cu128"
+# Only use this index when explicitly requested by `tool.uv.sources`.
+explicit = true
+
+[tool.uv]
+constraint-dependencies = [
+    "mako>=1.3.12",
+    "msgpack>=1.2.1",
+    "pillow>=12.3.0",
+    "pydantic-settings>=2.14.2",
+    "pygments>=2.20.0",
+    "starlette>=1.3.1",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
+    "torchvision==0.23.0",
+]
+
+[tool.hatch.metadata]
+# Needed so the KittenTTS wheel-URL dep in `project.dependencies` is accepted
+# by hatchling's metadata validator. KittenTTS isn't on PyPI (dev preview),
+# so pulling it via GH Releases URL is the only option today.
+allow-direct-references = true
+
+[tool.hatch.build.targets.sdist]
+include = ["omnivoice"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["omnivoice"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=6.0",
+    # Regenerates backend/worker/protocol/gen/ from worker_v1.proto. Dev-only:
+    # the generated stubs are committed, so neither the installer nor Docker
+    # needs protoc. tests/test_worker_protocol_gen.py fails if the two drift.
+    "grpcio-tools>=1.60",
+]
+
+[tool.pytest.ini_options]
+# Bare `pytest` would otherwise walk into `research/` (1.2 GB of vendored
+# upstream projects, each with its own test_*.py that calls sys.exit at
+# module level) and INTERNALERROR. `backend/tests/` still runs as its own CI
+# session (see ci.yml) but no longer stubs sys.modules — its conftest.py sets
+# a hermetic OMNIVOICE_DATA_DIR instead, so mixed invocations are safe too.
+testpaths = ["tests"]
+norecursedirs = [
+    "research",
+    "omnivoice/training",
+    "omnivoice/eval",
+    "frontend",
+    "deploy",
+    ".venv",
+    "node_modules",
+    "omnivoice_data",
+    "backend/omnivoice_data",
+]

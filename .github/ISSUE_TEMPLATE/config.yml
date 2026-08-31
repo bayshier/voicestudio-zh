@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discord — 提问与快速求助
+    url: https://discord.gg/bzQavDfVV9
+    about: 使用问题、安装帮助与聊天。“我该怎么……”这类问题在这里比开 issue 更快。
+  - name: 🗣️ GitHub 讨论区
+    url: https://github.com/debpalash/VoiceStudio/discussions
+    about: 想法、成果展示，以及不属于缺陷或具体功能请求的开放式问答。
+  - name: 🔒 安全漏洞
+    url: https://github.com/debpalash/VoiceStudio/security/policy
+    about: 请私密报告安全问题——请勿开设公开 issue。

@@ -1,0 +1,18 @@
+VoiceStudio 中文版镜像（voicestudio-zh）
+Copyright 2026 Easin
+
+本仓库地址：https://github.com/bayshier/voicestudio-zh
+
+本仓库为 debpalash/VoiceStudio（AGPL-3.0）的中文版镜像：
+https://github.com/debpalash/VoiceStudio
+原项目版权：Copyright (c) debpalash
+
+相对原项目的变化：主 README 采用项目官方提供的简体中文翻译
+（原 README_CN.md，英文原版保留为 README.en.md）；.github 下的
+社区文档（CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / SUPPORT /
+PR 与 issue 模板）翻译为中文；未保留原项目的赞助与捐赠内容
+（FUNDING.yml、SPONSORS.md、赞助区块与相关徽章）；修正了中文
+README 中 Colab 笔记本的引用路径。应用源码（backend / frontend /
+omnivoice / tests 等）与原版逐字节一致，零改动。docs/ 目录的
+英文文档保留原文。原项目 LICENSE 与 LICENSE-NOTICE.md 随本仓库
+保留，本镜像同样以 AGPL-3.0 提供。
