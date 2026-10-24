@@ -24,6 +24,8 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="许可证" /></a>
     <a href="https://github.com/debpalash/VoiceStudio/issues"><img src="https://img.shields.io/github/issues/debpalash/VoiceStudio?style=flat-square&color=ef4444" alt="Issues" /></a>
     <a href="https://discord.gg/bzQavDfVV9"><img src="https://img.shields.io/badge/Discord-Join_Community-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord" /></a>
+    <a href="https://github.com/bayshier/voicestudio-zh/stargazers"><img src="https://img.shields.io/github/stars/bayshier/voicestudio-zh?style=flat-square&color=f97316&label=%E4%B8%AD%E6%96%87%E7%89%88" alt="中文版 Star 数" /></a>
+    <a href="https://github.com/bayshier/voicestudio-zh/commits"><img src="https://img.shields.io/badge/%E4%B8%AD%E6%96%87%E7%89%88%E5%90%8C%E6%AD%A5%E5%9F%BA%E7%BA%BF-%E4%B8%8A%E6%B8%B8%20a30b716%20%C2%B7%202026--08--31-0ea5e9?style=flat-square" alt="中文版同步基线" /></a>
       </p>
 
   <p>

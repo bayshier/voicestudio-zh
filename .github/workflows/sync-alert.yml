@@ -1,0 +1,66 @@
+name: 上游同步提醒
+
+# 中文版是上游（debpalash/VoiceStudio，AGPL-3.0）的镜像：应用源码零改动，
+# 仅 README 与社区文档为中文。上游更新后需要人工翻译文档差异，因此不做
+# 自动合并，只开 issue 提醒。同步完成后更新根目录 .upstream-sync-sha 为
+# 上游最新 SHA，提醒即自动停更。
+
+on:
+  schedule:
+    - cron: "0 2 * * 3" # 每周三 02:00 UTC（上游日更，每周检查一次足够）
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+env:
+  UPSTREAM_REPO: debpalash/VoiceStudio
+  UPSTREAM_BRANCH: main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 比对上游最新提交
+        id: diff
+        run: |
+          remote_sha=$(git ls-remote "https://github.com/${UPSTREAM_REPO}.git" "${UPSTREAM_BRANCH}" | cut -f1)
+          local_sha=$(cat .upstream-sync-sha 2>/dev/null || echo none)
+          echo "remote=${remote_sha}"
+          echo "local=${local_sha}"
+          if [ "${remote_sha}" = "${local_sha}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "remote_sha=${remote_sha}" >> "$GITHUB_OUTPUT"
+            echo "local_sha=${local_sha}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 开启或更新同步提醒 issue
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REMOTE_SHA: ${{ steps.diff.outputs.remote_sha }}
+          LOCAL_SHA: ${{ steps.diff.outputs.local_sha }}
+        run: |
+          gh label create upstream-sync --color 0e8a16 --force -R "$GITHUB_REPOSITORY" || true
+          title="上游有更新，请同步汉化（${REMOTE_SHA:0:7}）"
+          body=$(cat <<EOF
+          上游 [${UPSTREAM_REPO}@${UPSTREAM_BRANCH}](https://github.com/${UPSTREAM_REPO}/tree/${UPSTREAM_BRANCH}) 最新提交 \`${REMOTE_SHA}\`，
+          本地汉化基线为 \`${LOCAL_SHA}\`（见 \`.upstream-sync-sha\`）。
+
+          同步步骤：
+          1. \`git remote add upstream https://github.com/${UPSTREAM_REPO}.git && git fetch upstream ${UPSTREAM_BRANCH}\`
+          2. \`git merge upstream/${UPSTREAM_BRANCH}\`——应用源码零改动可直接合并；上游 README/文档改动需重新翻译
+          3. 翻译完成后将 \`.upstream-sync-sha\` 更新为 \`${REMOTE_SHA}\` 并提交，本 issue 即可关闭
+          EOF
+          )
+          existing=$(gh issue list -R "$GITHUB_REPOSITORY" --label upstream-sync --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" -R "$GITHUB_REPOSITORY" --body "仍未同步：上游最新 \`${REMOTE_SHA}\`（本次检查）"
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" --label upstream-sync --title "$title" --body "$body"
+          fi

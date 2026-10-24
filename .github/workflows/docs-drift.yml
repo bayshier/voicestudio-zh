@@ -12,9 +12,8 @@
 name: docs-drift
 
 on:
-  schedule:
-    # Daily 03:30 UTC — after most merges, before EU morning triage.
-    - cron: "30 3 * * *"
+  # 中文版镜像仓库：中文 README 与 docs/features.yaml 清单天然不一致，
+  # docs-drift 检查在本仓库会永久误报，仅保留手动触发。
   workflow_dispatch:
 
 permissions:

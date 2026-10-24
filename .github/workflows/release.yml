@@ -30,12 +30,8 @@
 name: Desktop Release
 
 on:
-  push:
-    tags: ['v*']
-  schedule:
-    # 07:00 UTC daily — rolling `preview` prerelease from `main`. The
-    # preview-gate job no-ops the matrix when main hasn't moved in a day.
-    - cron: '0 7 * * *'
+  # 中文版镜像仓库：上游发布管线依赖上游的签名密钥与 secrets，在本仓库自动
+  # 触发必然失败（每日红叉）。仅保留手动触发，发布请用上游 release。
   workflow_dispatch:
     inputs:
       draft:
